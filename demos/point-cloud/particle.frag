@@ -36,5 +36,13 @@ void main()
     float ldotn = dot(l, n);
 
     fragColor = vec4(v_uv.x * 0.5 + 0.5, v_uv.y * 0.5 + 0.5, 0.0, 1.0);
-    //fragColor = vec4(vec3(ldotn), 1.0);
+
+    vec3 eye = mat3(u_viewInverse) * vec3(0.0, 0.0, 1.0);
+
+    vec3 diffuse = vec3(1.0, 1.0, 1.0);
+    float specular = pow(max(0.0, dot(eye, reflect(-l, n))), 128.0);
+    vec3 ambient = vec3(0.05, 0.03, 0.07);
+
+
+    fragColor = vec4(ambient + specular + ldotn * diffuse, 1.0);
 }

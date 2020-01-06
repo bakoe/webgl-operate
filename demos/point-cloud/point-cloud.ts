@@ -73,7 +73,7 @@ export class PointCloudRenderer extends Renderer {
             +0.5, +0.5, 0.0, +1.0, +1.0,
             -0.5, +0.5, 0.0, -1.0, +1.0]);
 
-        this._pointCount = 1e5;
+        this._pointCount = 1e4;
         const particles = new Float32Array(this._pointCount * vertices.length);
         // x * 0.2 * 8.0 - 4  1.6 - 5  -> 0.8
         // i0 = 0 * 3 * 4  = 0
@@ -88,9 +88,9 @@ export class PointCloudRenderer extends Renderer {
 
             const i0 = i * vertices.length;
             for (let j = 0; j < vertices.length; j += 5) {
-                particles[i0 + j + 0] = x + vertices[j + 0]; // x
-                particles[i0 + j + 1] = y + vertices[j + 1]; // y
-                particles[i0 + j + 2] = z + vertices[j + 2]; // z
+                particles[i0 + j + 0] = x; // x
+                particles[i0 + j + 1] = y; // y
+                particles[i0 + j + 2] = z; // z
                 particles[i0 + j + 3] = vertices[j + 3]; // u
                 particles[i0 + j + 4] = vertices[j + 4]; // v
             }
