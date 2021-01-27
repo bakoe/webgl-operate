@@ -93,6 +93,7 @@
         "analyze": "cross-env ANALYZE=true webpack-cli --mode production --config webpack.config.js",
         "website": "run-s build-dist demos examples doc pug",
         "postversion": "git push && git push --tags",
+        "prepare": "yarpm run prepack",
         "prepack": "yarpm run preversion",
         "preversion": "yarpm install && yarpm run build-dist && yarpm run build-lib"
     },
