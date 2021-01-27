@@ -93,7 +93,7 @@
         "website": "run-s build-dist demos examples doc pug",
         "postversion": "git push && git push --tags",
         "prepack": "npm run preversion",
-        "preversion": "npm run build-dist && npm run build-lib"
+        "preversion": "npm install --production=false && npm run build-dist && npm run build-lib"
     },
     "keywords": [
         "webgl",
