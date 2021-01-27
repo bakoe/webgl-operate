@@ -95,7 +95,7 @@
         "postversion": "git push && git push --tags",
         "prepare": "yarpm run prepack",
         "prepack": "yarpm run preversion",
-        "preversion": "yarpm install && yarpm run build-dist && yarpm run build-lib"
+        "preversion": "yarpm run build-dist && yarpm run build-lib"
     },
     "keywords": [
         "webgl",
