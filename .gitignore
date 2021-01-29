@@ -9,3 +9,10 @@ package-lock.json
 webgl-operate-*.tgz
 *.code-workspace
 test-results.xml
+
+.yarn/*
+!.yarn/releases
+!.yarn/plugins
+!.yarn/sdks
+!.yarn/versions
+.pnp.*
