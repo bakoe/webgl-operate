@@ -137,7 +137,7 @@ export class ShadowPass extends Initializable {
         // Setup shadow map
         this._shadowMapTexture = new Texture2D(this._context);
         this._shadowMapTexture.initialize(this._shadowMapSize[0], this._shadowMapSize[1],
-            internalFormat, format, gl.FLOAT);
+            internalFormat, format, type);
         this._shadowMapTexture.wrap(gl.CLAMP_TO_EDGE, gl.CLAMP_TO_EDGE);
         this._shadowMapTexture.filter(filter, filter);
 
