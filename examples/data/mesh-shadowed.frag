@@ -37,19 +37,22 @@ varying vec2 v_uv;
 
 const vec4 shadowColor = vec4(0.494, 0.753, 0.933, 1.0);
 
+const float shadowExponent = 80.0;
 const vec2 shadowExponents = vec2(30.0, 10.0);
 const float shadowLightBleedingReduction = 0.1;
 
+const float shadowMinVariance = 0.1;
+const float shadowBias = -0.002;
 
 void main(void)
 {
     float light_depth = SMDepth(v_vertex.xyz, u_lightPosition, u_lightNearFar);
     vec2 shadow_uv = SMCoordinates(v_vertex, u_lightViewProjection);
 
-    // float visibility = SMCompare(u_shadowMap, shadow_uv, light_depth, shadowBias);
+    float visibility = SMCompare(u_shadowMap, shadow_uv, light_depth, shadowBias);
     // float visibility = ESMCompare(u_shadowMap, shadow_uv, light_depth, shadowExponent);
     // float visibility = VSMCompare(u_shadowMap, shadow_uv, light_depth, shadowMinVariance, shadowLightBleedingReduction);
-    float visibility = EVSMCompare(u_shadowMap, shadow_uv, light_depth, shadowExponents, shadowLightBleedingReduction);
+    // float visibility = EVSMCompare(u_shadowMap, shadow_uv, light_depth, shadowExponents, shadowLightBleedingReduction);
 
     if (any(greaterThan(shadow_uv, vec2(1.0))) || any(lessThan(shadow_uv, vec2(0.0)))) {
         visibility = 1.0;
