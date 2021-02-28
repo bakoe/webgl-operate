@@ -16,15 +16,17 @@ float SMCompare(sampler2D depths, vec2 uv, float compare, float offset)
     return step(compare + offset, depth);
 }
 
-vec2 VSMDepth(vec3 worldPosition, vec3 lightPosition, vec2 lightNearFar)
-{
-    float depth = SMDepth(worldPosition, lightPosition, lightNearFar);
+#ifdef GL_OES_standard_derivatives
+    vec2 VSMDepth(vec3 worldPosition, vec3 lightPosition, vec2 lightNearFar)
+    {
+        float depth = SMDepth(worldPosition, lightPosition, lightNearFar);
 
-    vec2 df = vec2(dFdx(depth), dFdy(depth));
-    float moment = depth * depth + 0.25 * dot(df, df);
+        vec2 df = vec2(dFdx(depth), dFdy(depth));
+        float moment = depth * depth + 0.25 * dot(df, df);
 
-    return vec2(depth, moment);
-}
+        return vec2(depth, moment);
+    }
+#endif
 
 float chebyshevUpperBound(vec2 moments, float compare, float minVariance, float lightBleedingReduction)
 {
