@@ -4,6 +4,9 @@
 import { vec3 } from 'gl-matrix';
 
 import {
+    AccumulatePass,
+    AntiAliasingKernel,
+    BlitPass,
     Camera,
     Canvas,
     CuboidGeometry,
@@ -12,9 +15,12 @@ import {
     Context,
     DefaultFramebuffer,
     EventProvider,
+    Framebuffer,
     Invalidate,
     Navigation,
+    NdcFillingTriangle,
     Program,
+    Renderbuffer,
     Renderer,
     Shader,
     Texture2D,
@@ -35,6 +41,10 @@ export class VolumeRenderer extends Renderer {
     protected _navigation: Navigation;
 
     protected _cuboid: CuboidGeometry;
+
+    protected _ndcTriangle: NdcFillingTriangle;
+    protected _ndcOffsetKernel: AntiAliasingKernel;
+
     protected _volumeTexture: Texture3D;
     protected _colorScaleTexture: Texture2D;
 
@@ -42,10 +52,17 @@ export class VolumeRenderer extends Renderer {
     protected _uViewProjection: WebGLUniformLocation;
     protected _uEyePosition: WebGLUniformLocation;
     protected _uVolumeScale: WebGLUniformLocation;
+    protected _uNdcOffset: WebGLUniformLocation;
 
     protected _uVolumeDimensions: WebGLUniformLocation;
 
     protected _defaultFBO: DefaultFramebuffer;
+    protected _colorRenderTexture: Texture2D;
+    protected _depthRenderbuffer: Renderbuffer;
+    protected _intermediateFBO: Framebuffer;
+
+    protected _accumulate: AccumulatePass;
+    protected _blit: BlitPass;
 
 
     /**
@@ -63,9 +80,18 @@ export class VolumeRenderer extends Renderer {
         this._defaultFBO.bind();
 
         const gl = context.gl;
+        const gl2facade = this._context.gl2facade;
 
         this._cuboid = new CuboidGeometry(context, 'Cuboid', true, [2.0, 2.0, 2.0]);
         this._cuboid.initialize();
+
+        this._ndcTriangle = new NdcFillingTriangle(this._context);
+        this._ndcTriangle.initialize();
+
+
+        this._colorRenderTexture = new Texture2D(this._context, 'ColorRenderTexture');
+        this._depthRenderbuffer = new Renderbuffer(this._context, 'DepthRenderbuffer');
+        this._intermediateFBO = new Framebuffer(this._context, 'IntermediateFBO');
 
 
         const vert = new Shader(context, gl.VERTEX_SHADER, 'volume.vert');
@@ -87,6 +113,7 @@ export class VolumeRenderer extends Renderer {
         this._uViewProjection = this._program.uniform('u_viewProjection');
         this._uEyePosition = this._program.uniform('u_eyePosition');
         this._uVolumeScale = this._program.uniform('u_volumeScale');
+        this._uNdcOffset = this._program.uniform('u_ndcOffset');
 
         this._uVolumeDimensions = this._program.uniform('u_volumeDims');
 
@@ -134,6 +161,17 @@ export class VolumeRenderer extends Renderer {
         this._navigation = new Navigation(callback, eventProvider);
         this._navigation.camera = this._camera;
 
+        this._accumulate = new AccumulatePass(context);
+        this._accumulate.initialize(this._ndcTriangle);
+        this._accumulate.precision = this._framePrecision;
+        this._accumulate.texture = this._colorRenderTexture;
+
+        this._blit = new BlitPass(this._context);
+        this._blit.initialize(this._ndcTriangle);
+        this._blit.readBuffer = gl2facade.COLOR_ATTACHMENT0;
+        this._blit.drawBuffer = gl.BACK;
+        this._blit.target = this._defaultFBO;
+
         return true;
     }
 
@@ -144,6 +182,7 @@ export class VolumeRenderer extends Renderer {
         super.uninitialize();
 
         this._cuboid.uninitialize();
+        this._ndcTriangle.uninitialize();
         this._program.uninitialize();
 
         this._defaultFBO.uninitialize();
@@ -174,6 +213,23 @@ export class VolumeRenderer extends Renderer {
      * camera-updates.
      */
     protected onPrepare(): void {
+        const gl = this._context.gl;
+        const gl2facade = this._context.gl2facade;
+
+        if (!this._intermediateFBO.initialized) {
+            this._colorRenderTexture.initialize(this._frameSize[0], this._frameSize[1],
+                this._context.isWebGL2 ? gl.RGBA8 : gl.RGBA, gl.RGBA, gl.UNSIGNED_BYTE);
+            this._depthRenderbuffer.initialize(this._frameSize[0], this._frameSize[1], gl.DEPTH_COMPONENT16);
+            this._intermediateFBO.initialize([[gl2facade.COLOR_ATTACHMENT0, this._colorRenderTexture]
+                , [gl.DEPTH_ATTACHMENT, this._depthRenderbuffer]]);
+            this._intermediateFBO.clearColor([1.0, 1.0, 1.0, 1.0]);
+        }
+
+        if (this._altered.frameSize) {
+            this._intermediateFBO.resize(this._frameSize[0], this._frameSize[1]);
+            this._camera.viewport = [this._frameSize[0], this._frameSize[1]];
+        }
+
         if (this._altered.canvasSize) {
             this._camera.aspect = this._canvasSize[0] / this._canvasSize[1];
             this._camera.viewport = this._canvasSize;
@@ -183,21 +239,32 @@ export class VolumeRenderer extends Renderer {
             this._defaultFBO.clearColor(this._clearColor);
         }
 
+        if (this._altered.multiFrameNumber) {
+            this._ndcOffsetKernel = new AntiAliasingKernel(this._multiFrameNumber);
+        }
+
+        this._accumulate.update();
+
         this._altered.reset();
         this._camera.altered = false;
     }
 
-    protected onFrame(): void {
+    protected onFrame(frameNumber: number): void {
         if (this.isLoading) {
             return;
         }
 
         const gl = this._context.gl;
 
-        this._defaultFBO.bind();
-        this._defaultFBO.clear(gl.COLOR_BUFFER_BIT | gl.DEPTH_BUFFER_BIT, true, false);
+        this._intermediateFBO.bind();
+        this._intermediateFBO.clear(gl.COLOR_BUFFER_BIT | gl.DEPTH_BUFFER_BIT, true, false);
 
         gl.viewport(0, 0, this._frameSize[0], this._frameSize[1]);
+
+        const ndcOffset = this._ndcOffsetKernel.get(frameNumber);
+        ndcOffset[0] = 2.0 * ndcOffset[0] / this._frameSize[0];
+        ndcOffset[1] = 2.0 * ndcOffset[1] / this._frameSize[1];
+
 
         gl.enable(gl.CULL_FACE);
         gl.cullFace(gl.FRONT);
@@ -214,6 +281,7 @@ export class VolumeRenderer extends Renderer {
         gl.uniform3fv(this._uVolumeScale, vec3.fromValues(2.0, 2.0, 2.0));
 
         gl.uniform3iv(this._uVolumeDimensions, [64, 64, 64]);
+        gl.uniform2fv(this._uNdcOffset, ndcOffset);
 
         this._cuboid.bind();
         this._cuboid.draw();
@@ -223,11 +291,22 @@ export class VolumeRenderer extends Renderer {
 
         this._volumeTexture.unbind(gl.TEXTURE0);
 
-        gl.cullFace(gl.FRONT);
+        // gl.cullFace(gl.FRONT);
+        gl.disable(gl.DEPTH_TEST);
         gl.disable(gl.CULL_FACE);
+
+        this._accumulate.frame(frameNumber);
     }
 
-    protected onSwap(): void { }
+    protected onSwap(): void {
+        this._blit.framebuffer = this._accumulate.framebuffer ?
+            this._accumulate.framebuffer : this._intermediateFBO;
+        try {
+            this._blit.frame();
+        } catch {
+            // Do nothing
+        }
+    }
 
 }
 
@@ -240,7 +319,7 @@ export class VolumeRenderingExample extends Example {
     onInitialize(element: HTMLCanvasElement | string): boolean {
 
         this._canvas = new Canvas(element, { antialias: false });
-        this._canvas.controller.multiFrameNumber = 1;
+        this._canvas.controller.multiFrameNumber = 64;
         this._canvas.framePrecision = Wizard.Precision.byte;
         this._canvas.frameScale = [1.0, 1.0];
 

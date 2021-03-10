@@ -18,6 +18,8 @@ uniform highp sampler3D u_volume;
 uniform highp sampler2D u_transferFunction;
 uniform ivec3 u_volumeDims;
 
+uniform vec2 u_ndcOffset;
+
 in vec3 v_viewRayDir;
 flat in vec3 v_transformedEye;
 
@@ -67,7 +69,12 @@ void main(void)
 	vec3 dt_vec = 1.0 / (vec3(u_volumeDims) * abs(viewRayDirNormalized));
 	float dt = min(dt_vec.x, min(dt_vec.y, dt_vec.z));
 
-	float offset = wang_hash(int(gl_FragCoord.x + 10000.0 * gl_FragCoord.y));
+	float offset = wang_hash(int(
+		gl_FragCoord.x
+		+ 1e4 * gl_FragCoord.y
+		+ 1e8 * u_ndcOffset.x
+		+ 1e10 * u_ndcOffset.y
+	));
 
     // Step 4: Starting from the entry point, march the ray through the volume
 	// and sample it
