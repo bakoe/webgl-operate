@@ -132,5 +132,11 @@
         "title": "XToon Shading",
         "object": "XToonExample",
         "caption": "Minimal example showing XToon shading for simple geometry."
+    },
+    {
+        "target": "volume-rendering-example",
+        "title": "Volume Rendering",
+        "object": "VolumeRenderingExample",
+        "caption": "Minimal example showing volume rendering"
     }
 ]
