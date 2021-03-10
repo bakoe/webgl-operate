@@ -1,12 +1,12 @@
 
 /* spellchecker: disable */
 
-import { mat4, vec3 } from 'gl-matrix';
+import { vec3 } from 'gl-matrix';
 
 import {
-    Buffer,
     Camera,
     Canvas,
+    CuboidGeometry,
     Context,
     DefaultFramebuffer,
     EventProvider,
@@ -15,7 +15,6 @@ import {
     Program,
     Renderer,
     Shader,
-    Texture2D,
     Wizard,
 } from 'webgl-operate';
 
@@ -26,25 +25,17 @@ import { Example } from './example';
 
 // tslint:disable:max-classes-per-file
 
-const p = Math.sin(Math.PI / 3.0) * 0.5;
-
 export class VolumeRenderer extends Renderer {
 
     protected _camera: Camera;
     protected _navigation: Navigation;
 
-    protected _triangle = new Float32Array([ // x, y, z, u, v
-        -0.5, -p, 0.0, 0.0, 0.0,
-        +0.5, -p, 0.0, 1.0, 0.0,
-        +0.0, +p, 0.0, 0.5, p * 2.0,
-    ]);
-    protected _vertexLocation: GLuint;
-    protected _uvCoordLocation: GLuint;
-    protected _buffer: WebGLBuffer;
-    protected _texture: Texture2D;
+    protected _cuboid: CuboidGeometry;
 
     protected _program: Program;
     protected _uViewProjection: WebGLUniformLocation;
+    protected _uEyePosition: WebGLUniformLocation;
+    protected _uVolumeScale: WebGLUniformLocation;
 
     protected _defaultFBO: DefaultFramebuffer;
 
@@ -65,82 +56,61 @@ export class VolumeRenderer extends Renderer {
 
         const gl = context.gl;
 
-        this._buffer = gl.createBuffer();
-        gl.bindBuffer(gl.ARRAY_BUFFER, this._buffer);
-        gl.bufferData(gl.ARRAY_BUFFER, this._triangle, gl.STATIC_DRAW);
+        this._cuboid = new CuboidGeometry(context, 'Cuboid', true, [1.0, 1.0, 1.0]);
+        this._cuboid.initialize();
 
 
-        const vert = new Shader(context, gl.VERTEX_SHADER, 'mesh.vert');
-        vert.initialize(require('./data/mesh.vert'));
-        const frag = new Shader(context, gl.FRAGMENT_SHADER, 'mesh.frag');
-        frag.initialize(require('./data/mesh.frag'));
+        const vert = new Shader(context, gl.VERTEX_SHADER, 'volume.vert');
+        vert.initialize(require('./data/volume.vert'));
+        const frag = new Shader(context, gl.FRAGMENT_SHADER, 'volume.frag');
+        frag.initialize(require('./data/volume.frag'));
 
 
-        this._program = new Program(context, 'TriangleProgram');
+        this._program = new Program(context, 'VolumeProgram');
         this._program.initialize([vert, frag], false);
 
+        this._program.attribute('a_vertex', this._cuboid.vertexLocation);
         this._program.link();
         this._program.bind();
 
-        this._vertexLocation = this._program.attribute('a_vertex', this._vertexLocation);
-        this._uvCoordLocation = this._program.attribute('a_texCoord', this._uvCoordLocation);
-
-
-        gl.vertexAttribPointer(
-            this._vertexLocation,   // Attribute Location
-            3,                      // Number of elements per attribute
-            gl.FLOAT,               // Type of elements
-            gl.FALSE,
-            5 * Float32Array.BYTES_PER_ELEMENT, // Size of an individual vertex
-            0, // Offset from the beginning of a single vertex to this attribute
-        );
-
-        gl.vertexAttribPointer(
-            this._uvCoordLocation,  // Attribute Location
-            2,                      // Number of elements per attribute
-            gl.FLOAT,               // Type of elements
-            gl.FALSE,
-            5 * Float32Array.BYTES_PER_ELEMENT, // Size of an individual vertex
-            3 * Float32Array.BYTES_PER_ELEMENT, // Offset from the beginning of a single vertex to this attribute
-        );
-
-        gl.enableVertexAttribArray(this._vertexLocation);
-        gl.enableVertexAttribArray(this._uvCoordLocation);
-
 
         this._uViewProjection = this._program.uniform('u_viewProjection');
-        const identity = mat4.identity(mat4.create());
-        gl.uniformMatrix4fv(this._program.uniform('u_model'), gl.FALSE, identity);
-        gl.uniform1i(this._program.uniform('u_texture'), 0);
-        gl.uniform1i(this._program.uniform('u_textured'), false);
+        this._uEyePosition = this._program.uniform('u_eyePosition');
+        this._uVolumeScale = this._program.uniform('u_volumeScale');
+        // const identity = mat4.identity(mat4.create());
+        // gl.uniformMatrix4fv(this._program.uniform('u_model'), gl.FALSE, identity);
+        // gl.uniform1i(this._program.uniform('u_texture'), 0);
+        // gl.uniform1i(this._program.uniform('u_textured'), false);
 
 
-        this._texture = new Texture2D(context, 'Texture');
-        this._texture.initialize(1, 1, gl.RGB, gl.RGB, gl.UNSIGNED_BYTE);
-        this._texture.wrap(gl.REPEAT, gl.REPEAT);
-        this._texture.filter(gl.LINEAR, gl.LINEAR_MIPMAP_LINEAR);
-        this._texture.maxAnisotropy(Texture2D.MAX_ANISOTROPY);
+        // this._texture = new Texture2D(context, 'Texture');
+        // this._texture.initialize(1, 1, gl.RGB, gl.RGB, gl.UNSIGNED_BYTE);
+        // this._texture.wrap(gl.REPEAT, gl.REPEAT);
+        // this._texture.filter(gl.LINEAR, gl.LINEAR_MIPMAP_LINEAR);
+        // this._texture.maxAnisotropy(Texture2D.MAX_ANISOTROPY);
 
-        this._texture.fetch('/examples/data/triangle-texture.webp').then(() => {
-            const gl = context.gl;
+        // this._texture.fetch('/examples/data/triangle-texture.webp').then(() => {
+        //     const gl = context.gl;
 
-            this._program.bind();
-            gl.uniform1i(this._program.uniform('u_textured'), true);
+        //     this._program.bind();
+        //     gl.uniform1i(this._program.uniform('u_textured'), true);
 
-            this.finishLoading();
-            this.invalidate(true);
-        });
+        //     this.finishLoading();
+        //     this.invalidate(true);
+        // });
 
         this._camera = new Camera();
         this._camera.center = vec3.fromValues(0.0, 0.0, 0.0);
         this._camera.up = vec3.fromValues(0.0, 1.0, 0.0);
         this._camera.eye = vec3.fromValues(0.0, 0.0, 2.0);
-        this._camera.near = 1.0;
-        this._camera.far = 4.0;
+        this._camera.near = 0.1;
+        this._camera.far = 10.0;
 
 
         this._navigation = new Navigation(callback, eventProvider);
         this._navigation.camera = this._camera;
+
+        this.finishLoading();
 
         return true;
     }
@@ -151,8 +121,8 @@ export class VolumeRenderer extends Renderer {
     protected onUninitialize(): void {
         super.uninitialize();
 
+        this._cuboid.uninitialize();
         this._program.uninitialize();
-        this._context.gl.deleteBuffer(this._buffer);
 
         this._defaultFBO.uninitialize();
     }
@@ -207,21 +177,28 @@ export class VolumeRenderer extends Renderer {
 
         gl.viewport(0, 0, this._frameSize[0], this._frameSize[1]);
 
-        this._texture.bind(gl.TEXTURE0);
+        gl.enable(gl.CULL_FACE);
+        gl.cullFace(gl.FRONT);
+        gl.enable(gl.DEPTH_TEST);
+
+        // this._texture.bind(gl.TEXTURE0);
 
         this._program.bind();
         gl.uniformMatrix4fv(this._uViewProjection, gl.GL_FALSE, this._camera.viewProjection);
+        gl.uniform3fv(this._uEyePosition, this._camera.eye);
+        // TODO: Replace hardcoded scale with cuboid’s scale(?)
+        gl.uniform3fv(this._uVolumeScale, vec3.fromValues(1.0, 1.0, 1.0));
 
-        gl.bindBuffer(gl.ARRAY_BUFFER, this._buffer);
-
-        gl.drawArrays(gl.TRIANGLES, 0, 3);
-
-        gl.bindBuffer(gl.ARRAY_BUFFER, Buffer.DEFAULT_BUFFER);
+        this._cuboid.bind();
+        this._cuboid.draw();
+        this._cuboid.unbind();
 
         this._program.unbind();
 
-        this._texture.unbind(gl.TEXTURE0);
+        // this._texture.unbind(gl.TEXTURE0);
 
+        gl.cullFace(gl.BACK);
+        gl.disable(gl.CULL_FACE);
     }
 
     protected onSwap(): void { }
