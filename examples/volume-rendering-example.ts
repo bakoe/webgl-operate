@@ -7,6 +7,8 @@ import {
     Camera,
     Canvas,
     CuboidGeometry,
+    Color,
+    ColorScale,
     Context,
     DefaultFramebuffer,
     EventProvider,
@@ -15,6 +17,7 @@ import {
     Program,
     Renderer,
     Shader,
+    Texture2D,
     Texture3D,
     Wizard,
 } from 'webgl-operate';
@@ -33,6 +36,7 @@ export class VolumeRenderer extends Renderer {
 
     protected _cuboid: CuboidGeometry;
     protected _volumeTexture: Texture3D;
+    protected _colorScaleTexture: Texture2D;
 
     protected _program: Program;
     protected _uViewProjection: WebGLUniformLocation;
@@ -78,7 +82,7 @@ export class VolumeRenderer extends Renderer {
         this._program.bind();
 
         gl.uniform1i(this._program.uniform('u_volume'), 0); // TEXTURE0
-        // gl.uniform1i(this._program.uniform('u_transferFunction'), 1); // TEXTURE1
+        gl.uniform1i(this._program.uniform('u_transferFunction'), 1); // TEXTURE1
 
         this._uViewProjection = this._program.uniform('u_viewProjection');
         this._uEyePosition = this._program.uniform('u_eyePosition');
@@ -101,6 +105,21 @@ export class VolumeRenderer extends Renderer {
         ).then(() => {
             this.finishLoading();
             this.invalidate(true);
+        });
+
+        this._colorScaleTexture = new Texture2D(context, `Texture-ColorScale`);
+        this._colorScaleTexture.initialize(8, 1, gl.RGB, gl.RGB, gl.UNSIGNED_BYTE);
+        this._colorScaleTexture.wrap(gl.CLAMP_TO_EDGE, gl.CLAMP_TO_EDGE);
+        this._colorScaleTexture.filter(gl.LINEAR, gl.LINEAR);
+
+        const invert = true;
+
+        ColorScale.fromPreset(`data/colorbrewer.json`, 'RdYlBu', 8).then((scale: ColorScale) => {
+            if (invert) {
+                scale.invert();
+            }
+            const data = scale.bitsUI8(Color.Space.RGB, false);
+            this._colorScaleTexture.data(data, true, false);
         });
 
 
@@ -186,6 +205,7 @@ export class VolumeRenderer extends Renderer {
         gl.blendFunc(gl.ONE, gl.ONE_MINUS_SRC_ALPHA);
 
         this._volumeTexture.bind(gl.TEXTURE0);
+        this._colorScaleTexture.bind(gl.TEXTURE1);
 
         this._program.bind();
         gl.uniformMatrix4fv(this._uViewProjection, gl.GL_FALSE, this._camera.viewProjection);

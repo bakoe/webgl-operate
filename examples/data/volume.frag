@@ -15,8 +15,7 @@ precision highp float;
 
 uniform highp sampler3D u_volume;
 // WebGL doesn't support 1D textures, so we use a 2D texture for the transfer function
-// TODO: Actually use the transfer function/color map by using the following LOC and setting u_transferFunction
-// uniform highp sampler2D u_transferFunction;
+uniform highp sampler2D u_transferFunction;
 uniform ivec3 u_volumeDims;
 
 in vec3 v_viewRayDir;
@@ -65,9 +64,7 @@ void main(void)
 		// and just use the sample value as the opacity
 		float val = texture(u_volume, p).r;
 
-        // TODO: Actually use the transfer function/color map by using the following LOC and setting u_transferFunction
-		// vec4 val_color = vec4(texture(u_transferFunction, vec2(val, 0.5)).rgb, val);
-		vec4 val_color = vec4(val);
+        vec4 val_color = vec4(texture(u_transferFunction, vec2(val, 0.5)).rgb, val);
 
 		// Step 4.2: Accumulate the color and opacity using the front-to-back
 		// compositing equation
