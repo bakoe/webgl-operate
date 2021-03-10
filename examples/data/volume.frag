@@ -34,6 +34,18 @@ vec2 intersect_box(vec3 orig, vec3 dir) {
 	return vec2(t0, t1);
 }
 
+// Pseudo-random number gen from
+// http://www.reedbeta.com/blog/quick-and-easy-gpu-random-numbers-in-d3d11/
+// with some tweaks for the range of values
+float wang_hash(int seed) {
+	seed = (seed ^ 61) ^ (seed >> 16);
+	seed *= 9;
+	seed = seed ^ (seed >> 4);
+	seed *= 0x27d4eb2d;
+	seed = seed ^ (seed >> 15);
+	return float(seed % 2147483647) / float(2147483647);
+}
+
 void main(void)
 {
     // Step 1: Normalize the view ray
@@ -55,9 +67,11 @@ void main(void)
 	vec3 dt_vec = 1.0 / (vec3(u_volumeDims) * abs(viewRayDirNormalized));
 	float dt = min(dt_vec.x, min(dt_vec.y, dt_vec.z));
 
+	float offset = wang_hash(int(gl_FragCoord.x + 10000.0 * gl_FragCoord.y));
+
     // Step 4: Starting from the entry point, march the ray through the volume
 	// and sample it
-	vec3 p = v_transformedEye + t_hit.x * viewRayDirNormalized;
+	vec3 p = v_transformedEye + (t_hit.x + offset * dt) * viewRayDirNormalized;
 	for (float t = t_hit.x; t < t_hit.y; t += dt) {
 		// Step 4.1: Sample the volume, and color it by the transfer function.
 		// Note that here we don't use the opacity from the transfer function,
