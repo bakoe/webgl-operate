@@ -17,6 +17,7 @@ uniform highp sampler3D u_volume;
 // WebGL doesn't support 1D textures, so we use a 2D texture for the transfer function
 uniform highp sampler2D u_transferFunction;
 uniform ivec3 u_volumeDims;
+uniform float u_dtScale;
 
 uniform vec2 u_ndcOffset;
 
@@ -67,7 +68,7 @@ void main(void)
 
     // Step 3: Compute the step size to march through the volume grid
 	vec3 dt_vec = 1.0 / (vec3(u_volumeDims) * abs(viewRayDirNormalized));
-	float dt = min(dt_vec.x, min(dt_vec.y, dt_vec.z));
+	float dt = u_dtScale * min(dt_vec.x, min(dt_vec.y, dt_vec.z));
 
 	float offset = wang_hash(int(
 		gl_FragCoord.x
@@ -86,6 +87,9 @@ void main(void)
 		float val = texture(u_volume, p).r;
 
         vec4 val_color = vec4(texture(u_transferFunction, vec2(val, 0.5)).rgb, val);
+
+		// Opacity correction
+		val_color.a = 1.0 - pow(1.0 - val_color.a, u_dtScale);
 
 		// Step 4.2: Accumulate the color and opacity using the front-to-back
 		// compositing equation

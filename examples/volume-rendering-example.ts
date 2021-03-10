@@ -52,6 +52,7 @@ export class VolumeRenderer extends Renderer {
     protected _uViewProjection: WebGLUniformLocation;
     protected _uEyePosition: WebGLUniformLocation;
     protected _uVolumeScale: WebGLUniformLocation;
+    protected _uDtScale: WebGLUniformLocation;
     protected _uNdcOffset: WebGLUniformLocation;
 
     protected _uVolumeDimensions: WebGLUniformLocation;
@@ -113,6 +114,7 @@ export class VolumeRenderer extends Renderer {
         this._uViewProjection = this._program.uniform('u_viewProjection');
         this._uEyePosition = this._program.uniform('u_eyePosition');
         this._uVolumeScale = this._program.uniform('u_volumeScale');
+        this._uDtScale = this._program.uniform('u_dtScale');
         this._uNdcOffset = this._program.uniform('u_ndcOffset');
 
         this._uVolumeDimensions = this._program.uniform('u_volumeDims');
@@ -282,6 +284,7 @@ export class VolumeRenderer extends Renderer {
 
         gl.uniform3iv(this._uVolumeDimensions, [64, 64, 64]);
         gl.uniform2fv(this._uNdcOffset, ndcOffset);
+        gl.uniform1f(this._uDtScale, 0.2);
 
         this._cuboid.bind();
         this._cuboid.draw();
