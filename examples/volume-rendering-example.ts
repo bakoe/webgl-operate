@@ -284,7 +284,13 @@ export class VolumeRenderer extends Renderer {
 
         gl.uniform3iv(this._uVolumeDimensions, [64, 64, 64]);
         gl.uniform2fv(this._uNdcOffset, ndcOffset);
-        gl.uniform1f(this._uDtScale, 0.2);
+
+        let dtScale = 2.0;
+        if (frameNumber !== 0) {
+            dtScale = dtScale / frameNumber;
+            dtScale = Math.max(dtScale, 0.1);
+        }
+        gl.uniform1f(this._uDtScale, dtScale);
 
         this._cuboid.bind();
         this._cuboid.draw();
