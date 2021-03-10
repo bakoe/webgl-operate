@@ -15,6 +15,7 @@ import {
     Program,
     Renderer,
     Shader,
+    Texture3D,
     Wizard,
 } from 'webgl-operate';
 
@@ -31,11 +32,14 @@ export class VolumeRenderer extends Renderer {
     protected _navigation: Navigation;
 
     protected _cuboid: CuboidGeometry;
+    protected _volumeTexture: Texture3D;
 
     protected _program: Program;
     protected _uViewProjection: WebGLUniformLocation;
     protected _uEyePosition: WebGLUniformLocation;
     protected _uVolumeScale: WebGLUniformLocation;
+
+    protected _uVolumeDimensions: WebGLUniformLocation;
 
     protected _defaultFBO: DefaultFramebuffer;
 
@@ -56,7 +60,7 @@ export class VolumeRenderer extends Renderer {
 
         const gl = context.gl;
 
-        this._cuboid = new CuboidGeometry(context, 'Cuboid', true, [1.0, 1.0, 1.0]);
+        this._cuboid = new CuboidGeometry(context, 'Cuboid', true, [2.0, 2.0, 2.0]);
         this._cuboid.initialize();
 
 
@@ -73,31 +77,32 @@ export class VolumeRenderer extends Renderer {
         this._program.link();
         this._program.bind();
 
+        gl.uniform1i(this._program.uniform('u_volume'), 0); // TEXTURE0
+        // gl.uniform1i(this._program.uniform('u_transferFunction'), 1); // TEXTURE1
 
         this._uViewProjection = this._program.uniform('u_viewProjection');
         this._uEyePosition = this._program.uniform('u_eyePosition');
         this._uVolumeScale = this._program.uniform('u_volumeScale');
+
+        this._uVolumeDimensions = this._program.uniform('u_volumeDims');
+
+        // TODO: Re-Add u_model and thus allow positioning the model in 3D space
         // const identity = mat4.identity(mat4.create());
         // gl.uniformMatrix4fv(this._program.uniform('u_model'), gl.FALSE, identity);
-        // gl.uniform1i(this._program.uniform('u_texture'), 0);
-        // gl.uniform1i(this._program.uniform('u_textured'), false);
 
+        this._volumeTexture = new Texture3D(context, 'Texture-Volume');
+        this._volumeTexture.initialize(1, 1, 1, gl.R8, gl.RED, gl.UNSIGNED_BYTE);
+        this._volumeTexture.wrap(gl.CLAMP_TO_EDGE, gl.CLAMP_TO_EDGE, gl.CLAMP_TO_EDGE);
+        this._volumeTexture.filter(gl.LINEAR, gl.LINEAR, gl.LINEAR);
 
-        // this._texture = new Texture2D(context, 'Texture');
-        // this._texture.initialize(1, 1, gl.RGB, gl.RGB, gl.UNSIGNED_BYTE);
-        // this._texture.wrap(gl.REPEAT, gl.REPEAT);
-        // this._texture.filter(gl.LINEAR, gl.LINEAR_MIPMAP_LINEAR);
-        // this._texture.maxAnisotropy(Texture2D.MAX_ANISOTROPY);
+        void this._volumeTexture.loadFromUint8Raw(
+            '/examples/data/volume_fuel_64x64x64_uint8.raw',
+            [64, 64, 64]
+        ).then(() => {
+            this.finishLoading();
+            this.invalidate(true);
+        });
 
-        // this._texture.fetch('/examples/data/triangle-texture.webp').then(() => {
-        //     const gl = context.gl;
-
-        //     this._program.bind();
-        //     gl.uniform1i(this._program.uniform('u_textured'), true);
-
-        //     this.finishLoading();
-        //     this.invalidate(true);
-        // });
 
         this._camera = new Camera();
         this._camera.center = vec3.fromValues(0.0, 0.0, 0.0);
@@ -109,8 +114,6 @@ export class VolumeRenderer extends Renderer {
 
         this._navigation = new Navigation(callback, eventProvider);
         this._navigation.camera = this._camera;
-
-        this.finishLoading();
 
         return true;
     }
@@ -179,15 +182,18 @@ export class VolumeRenderer extends Renderer {
 
         gl.enable(gl.CULL_FACE);
         gl.cullFace(gl.FRONT);
-        gl.enable(gl.DEPTH_TEST);
+        gl.enable(gl.BLEND);
+        gl.blendFunc(gl.ONE, gl.ONE_MINUS_SRC_ALPHA);
 
-        // this._texture.bind(gl.TEXTURE0);
+        this._volumeTexture.bind(gl.TEXTURE0);
 
         this._program.bind();
         gl.uniformMatrix4fv(this._uViewProjection, gl.GL_FALSE, this._camera.viewProjection);
         gl.uniform3fv(this._uEyePosition, this._camera.eye);
         // TODO: Replace hardcoded scale with cuboid’s scale(?)
-        gl.uniform3fv(this._uVolumeScale, vec3.fromValues(1.0, 1.0, 1.0));
+        gl.uniform3fv(this._uVolumeScale, vec3.fromValues(2.0, 2.0, 2.0));
+
+        gl.uniform3iv(this._uVolumeDimensions, [64, 64, 64]);
 
         this._cuboid.bind();
         this._cuboid.draw();
@@ -195,9 +201,9 @@ export class VolumeRenderer extends Renderer {
 
         this._program.unbind();
 
-        // this._texture.unbind(gl.TEXTURE0);
+        this._volumeTexture.unbind(gl.TEXTURE0);
 
-        gl.cullFace(gl.BACK);
+        gl.cullFace(gl.FRONT);
         gl.disable(gl.CULL_FACE);
     }
 

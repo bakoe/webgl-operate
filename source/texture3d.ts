@@ -9,6 +9,7 @@ import { Bindable } from './bindable';
 import { TexImage3DData } from './gl2facade';
 import { Initializable } from './initializable';
 import { AbstractObject } from './object';
+import { fetchAsync } from './fetch';
 
 /* spellchecker: enable */
 
@@ -236,6 +237,18 @@ export class Texture3D extends AbstractObject<WebGLTexture> implements Bindable 
             }
             image.src = uri;
         });
+    }
+
+    // TODO: Add documentation comment
+    @Initializable.assert_initialized()
+    loadFromUint8Raw(uri: string, dimensions: [GLsizei, GLsizei, GLsizei]) : Promise<void> {
+        const transform = (data: ArrayBuffer): void => {
+            const dataBuffer = new Uint8Array(data);
+            this.resize(dimensions[0], dimensions[1], dimensions[2]);
+            this.data(dataBuffer);
+        }
+
+        return fetchAsync<ArrayBuffer>(uri, 'arraybuffer').then(transform);
     }
 
     /**
