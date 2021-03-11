@@ -83,7 +83,7 @@ export class VolumeRenderer extends Renderer {
         const gl = context.gl;
         const gl2facade = this._context.gl2facade;
 
-        this._cuboid = new CuboidGeometry(context, 'Cuboid', true, [2.0, 2.0, 2.0]);
+        this._cuboid = new CuboidGeometry(context, 'Cuboid', true, [19.59032166, 3.4400007724761963, 15.443490028]);
         this._cuboid.initialize();
 
         this._ndcTriangle = new NdcFillingTriangle(this._context);
@@ -128,9 +128,19 @@ export class VolumeRenderer extends Renderer {
         this._volumeTexture.wrap(gl.CLAMP_TO_EDGE, gl.CLAMP_TO_EDGE, gl.CLAMP_TO_EDGE);
         this._volumeTexture.filter(gl.LINEAR, gl.LINEAR, gl.LINEAR);
 
-        void this._volumeTexture.loadFromUint8Raw(
-            '/examples/data/volume_fuel_64x64x64_uint8.raw',
-            [64, 64, 64]
+        // void this._volumeTexture.loadFromUint8Raw(
+        //     '/examples/data/volume_fuel_64x64x64_uint8.raw',
+        //     [64, 64, 64]
+        // ).then(() => {
+        //     this.finishLoading();
+        //     this.invalidate(true);
+        // });
+
+        void this._volumeTexture.load(
+            '/examples/data/volume_inverted_160x126x28_uint8.png',
+            28,
+            false,
+            true
         ).then(() => {
             this.finishLoading();
             this.invalidate(true);
@@ -153,11 +163,11 @@ export class VolumeRenderer extends Renderer {
 
 
         this._camera = new Camera();
-        this._camera.center = vec3.fromValues(0.0, 0.0, 0.0);
+        this._camera.center = vec3.fromValues(7.8, 0.0, 3.9);
         this._camera.up = vec3.fromValues(0.0, 1.0, 0.0);
-        this._camera.eye = vec3.fromValues(0.0, 0.0, 2.0);
-        this._camera.near = 0.1;
-        this._camera.far = 10.0;
+        this._camera.eye = vec3.fromValues(22.7, 23.4, 20.2);
+        this._camera.near = 1.0;
+        this._camera.far = 512.0;
 
 
         this._navigation = new Navigation(callback, eventProvider);
@@ -280,9 +290,9 @@ export class VolumeRenderer extends Renderer {
         gl.uniformMatrix4fv(this._uViewProjection, gl.GL_FALSE, this._camera.viewProjection);
         gl.uniform3fv(this._uEyePosition, this._camera.eye);
         // TODO: Replace hardcoded scale with cuboid’s scale(?)
-        gl.uniform3fv(this._uVolumeScale, vec3.fromValues(2.0, 2.0, 2.0));
+        gl.uniform3fv(this._uVolumeScale, vec3.fromValues(19.59032166, 15.443490028, 3.4400007724761963));
 
-        gl.uniform3iv(this._uVolumeDimensions, [64, 64, 64]);
+        gl.uniform3iv(this._uVolumeDimensions, [160, 126, 28]);
         gl.uniform2fv(this._uNdcOffset, ndcOffset);
 
         let dtScale = 2.0;

@@ -84,9 +84,13 @@ void main(void)
 		// Step 4.1: Sample the volume, and color it by the transfer function.
 		// Note that here we don't use the opacity from the transfer function,
 		// and just use the sample value as the opacity
-		float val = texture(u_volume, p).r;
+		float val = 1.0 - texture(u_volume, p).r;
+
+		val -= 0.5;
+		val = max(val, 0.0);
 
         vec4 val_color = vec4(texture(u_transferFunction, vec2(val, 0.5)).rgb, val);
+		val_color = vec4(val);
 
 		// Opacity correction
 		val_color.a = 1.0 - pow(1.0 - val_color.a, u_dtScale);
